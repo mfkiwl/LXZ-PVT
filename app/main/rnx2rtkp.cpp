@@ -104,7 +104,13 @@ int main(int argc, char ** argv)
 	char ifs[MAXFILE][1024], cfgfile[1024];
     char* infile[MAXFILE] = { NULL }, * p;
     char outfile[1024];
-    
+    char logfile[1024]; // 用于存储日志文件路径
+
+    char stm[64] = { 0 }; // 用于存储开始时间的字符串
+    time_t StartTime, EndTime;
+    time(&StartTime);
+    struct tm* tm_start = localtime(&StartTime);  // 转换为本地时间
+    strftime(stm, sizeof(stm), "%Y-%m-%d %H:%M:%S|", tm_start);
 
     prcopt.mode = PMODE_SINGLE;
     prcopt.navsys = 0;
@@ -187,33 +193,51 @@ int main(int argc, char ** argv)
         else if (*argv[i]=='-') printhelp();
         else if (n<MAXFILE) infile[n++]=argv[i];
     }
-	if (n <= 0)
+	
+    if (n <= 0)
 	{
 		for (i = 0; i<MAXFILE; i++)infile[i] = ifs[i];
-        n = loadfiles(cfgfile, sysopts, infile, outfile);     //n为输入文件数目
+        n = loadfiles(cfgfile, sysopts, infile, outfile, logfile);     //n为输入文件数目
         for (int i = n; i < MAXFILE; i++)infile[i] = { NULL }; //清空剩余的输入文件
 	}
 
-    if (!prcopt.navsys) {
-        prcopt.navsys=SYS_GPS|SYS_GLO;  //如果没有指定卫星系统，默认使用GPS+GLO
+    ret = ReadPosAndAnt(infile, &prcopt);
+    ret = OutfilePathSet(infile, outfile, prcopt);
+    ret = LogfilePathSet(infile, logfile, prcopt);
+
+    const char* real_outfile = outfile;
+    const char* real_logfile = logfile;
+    const char* real_infile[MAXFILE];
+    for (int i = 0; i < MAXFILE; i++)
+    {
+        if (!infile[i])
+            real_infile[i] = ""; //如果输入文件为空，则设置为NULL
+        else real_infile[i] = infile[i]; //否则设置为实际的输入文件路径
     }
-    if (n<=0) {
+
+    if (!prcopt.navsys) {
+        prcopt.navsys=SYS_GPS;  //如果没有指定卫星系统，默认使用GPS+GLO
+    }
+    if (n <= 0) {
         showmsg("error : no input file");
+        OutLog(stm, EndTime, real_logfile, prcopt, 2);
         return -2;
     }
 	solopt.navsys = prcopt.navsys;
 
-    const char* real_outfile = outfile;
-    const char* real_infile[MAXFILE];
-    for(int i=0;i<MAXFILE;i++)
-	{
-        if (!infile[i]) 
-            real_infile[i] = ""; //如果输入文件为空，则设置为NULL
-		else real_infile[i] = infile[i]; //否则设置为实际的输入文件路径
-	}
-
-    ret=postpos(ts,te,tint,0.0,&prcopt,&solopt,&filopt, real_infile,n, real_outfile,"","");
+    /* ret-解算状态 0:正常解算，1:无可用卫星， */
+    ret = postpos(ts, te, tint, 0.0, &prcopt, &solopt, &filopt, real_infile, n, real_outfile, "", "");
+    if (ret != 0)
+    {
+        OutLog(stm, EndTime, real_logfile, prcopt, ret);
+        prcopt.navsys = SYS_GPS | SYS_GLO | SYS_CMP | SYS_GAL;
+        prcopt.freqopt = 5;
+        prcopt.ionoopt = IONOOPT_IFLC;
+        ret = postpos(ts, te, tint, 0.0, &prcopt, &solopt, &filopt, real_infile, n, real_outfile, "", "");
+    }
     
+    OutLog(stm, EndTime, real_logfile, prcopt, ret);
+
 	//system("pause");
     //if (!ret) fprintf(stderr,"%40s\r","");
     return ret;

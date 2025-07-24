@@ -179,6 +179,7 @@ if (sys == SYS_CMP) {
     }
 }
 
+----------------------↓↓↓↓↓↓↓提示：以下改动在最新版本中已撤销↓↓↓↓↓↓↓-------------------
 8.修改文件：rinex				修改函数：decode_obsdata
 for (i=0,j=ver<=2.99?0:3;i<ind->n;i++,j+=16) {
     
@@ -203,6 +204,7 @@ for (i=0,j=ver<=2.99?0:3;i<ind->n;i++,j+=16) {
         lli[i]=(unsigned char)str2num(buff,j+14+1,1)&3;   // 最后的"&3"等价于"%4"（仅对 0～255 范围有效）
     }
 }
+--------------------↑↑↑↑↑↑↑提示：以上改动在最新版本中已撤销↑↑↑↑↑↑↑-------------------
 
 9.修改文件：rtkcmn.cpp		修改函数：static char *obscodes[]
 static char *obscodes[]={       /* observation code strings */
@@ -539,4 +541,35 @@ void init_obs(obs_t* obs)
     
 
     // 你可以在这里继续初始化 data 其他指针成员,根据需要
+}
+
+41.修改文件：rtkcmn.cpp				修改函数：createdir
+#ifdef WIN32
+    CreateDirectory(buff,NULL);
+#else
+    mkdir(buff,0777);
+#endif
+修改内容：增加判断，如果该目录已存在，则不进行创建
+
+42.修改文件：test_src.cpp				修改函数：permutation
+index = nx>0 ? (int)round(ratio*nx) - 1 : -1;
+if (index >= 0){
+	return x[index];
+}
+else
+{
+	return 0.0;
+}
+修改内容：前面通过zeros函数分配的x的内存在使用结束后没有释放，新增释放内存语句，修改后：
+index = nx>0 ? (int)round(ratio*nx) - 1 : -1;
+// 返回排序结果，释放内存
+if (index >= 0){
+	double x_index = x[index];
+	free(x);
+	return x_index;
+}
+else
+{
+	free(x);
+	return 0.0;
 }
