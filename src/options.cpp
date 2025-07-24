@@ -121,7 +121,7 @@ EXPORT opt_t sysopts[]={
     {"pos2-basesig",    1,  (void *)&prcopt_.baseline[1],"m"    },
     
     {"out-solformat",   3,  (void *)&solopt_.posf,       SOLOPT },
-	{ "out-igmasformat", 3, (void *)&solopt_.igmasfmt,     IGMASOPT },
+	{"out-igmasformat", 3, (void *)&solopt_.igmasfmt,     IGMASOPT },
     {"out-outhead",     3,  (void *)&solopt_.outhead,    SWTOPT },
     {"out-outopt",      3,  (void *)&solopt_.outopt,     SWTOPT },
     {"out-outvel",      3,  (void *)&solopt_.outvel,     SWTOPT },

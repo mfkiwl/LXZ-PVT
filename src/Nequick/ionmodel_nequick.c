@@ -314,7 +314,7 @@ extern double ionmodel_nequick(double * galionpar,int month, double UTC, double 
   // Linux 替代方案，例如：
       char path[MAX_PATH];
       ssize_t len = readlink("/proc/self/exe", BufferFileName, sizeof(path) - 1);
-      if (len = -1)
+      if (len == -1)
       {
           return 0.0;
       }
@@ -325,14 +325,24 @@ extern double ionmodel_nequick(double * galionpar,int month, double UTC, double 
       }
 #endif
 
+#ifdef _WIN32
 	  (strrchr(BufferFileName, '\\'))[1] = 0;
-
 	  char pModip_file[1024];
 	  char pCCIR_directory[1024];
 	  strcpy(pModip_file, BufferFileName);
 	  strcat(pModip_file, "\\NQfile\\modip\\modip2001_wrapped.asc");
 	  strcpy(pCCIR_directory, BufferFileName);
 	  strcat(pCCIR_directory, "\\NQfile\\ccir");
+#else
+      (strrchr(BufferFileName, '/'))[1] = 0;
+      char pModip_file[1024];
+      char pCCIR_directory[1024];
+      strcpy(pModip_file, BufferFileName);
+      strcat(pModip_file, "/NQfile/modip/modip2001_wrapped.asc");
+      strcpy(pCCIR_directory, BufferFileName);
+      strcat(pCCIR_directory, "/NQfile/ccir");
+#endif
+
 
 
 	  // NeQuickG_handle nequick_;

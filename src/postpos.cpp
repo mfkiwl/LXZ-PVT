@@ -78,6 +78,7 @@ static char rtcm_path[1024]=""; /* rtcm data path */
 static rtcm_t rtcm;             /* rtcm control struct */
 static FILE *fp_rtcm=NULL;      /* rtcm data file pointer */
 static char outsppfile[1024];
+static char SolFlag = 0;        /* 解算状态 0:正常解算，1:无可用卫星， */
 
 /* 初始化重要的结构体 */
 void init_nav(nav_t* nav) 
@@ -296,7 +297,8 @@ static int inputobs(obsd_t *obs, int solq, const prcopt_t *popt)
                 if (timediff(obss.data[i].time,obss.data[iobsu].time)>DTTOL) break;
         }
         nr=nextobsf(&obss,&iobsr,2);
-        if (nr<=0) {
+        if (nr<=0) 
+        {
             nr=nextobsf(&obss,&iobsr,2);
         }
         for (i=0;i<nu&&n<MAXOBS*2;i++) obs[n++]=obss.data[iobsu+i];
@@ -304,10 +306,12 @@ static int inputobs(obsd_t *obs, int solq, const prcopt_t *popt)
         iobsu+=nu;
         
         /* update sbas corrections */
-        while (isbs<sbss.n) {
+        while (isbs<sbss.n) 
+        {
             time=gpst2time(sbss.msgs[isbs].week,sbss.msgs[isbs].tow);
             
-            if (getbitu(sbss.msgs[isbs].msg,8,6)!=9) { /* except for geo nav */
+            if (getbitu(sbss.msgs[isbs].msg,8,6)!=9)
+            { /* except for geo nav */
                 sbsupdatecorr(sbss.msgs+isbs,&navs);
             }
             if (timediff(time,obs[0].time)>-1.0-DTTOL) break;
@@ -441,8 +445,8 @@ static void procpos(FILE *fp, const prcopt_t *popt, const solopt_t *sopt,
         /* exclude satellites */
         for (i=n=0;i<nobs;i++) {
 			rtk.sol.sat[obs[i].sat - 1] = -1;
-            if ((satsys(obs[i].sat,NULL)&popt->navsys)&&
-                popt->exsats[obs[i].sat-1]!=1) obs[n++]=obs[i];
+            if ((satsys(obs[i].sat,NULL)&popt->navsys)&&popt->exsats[obs[i].sat-1]!=1) 
+                obs[n++]=obs[i];
         }
         if (n<=0) continue;
 		ptime = timeadd(ts, prgbar*dt);
@@ -565,6 +569,14 @@ static void procpos(FILE *fp, const prcopt_t *popt, const solopt_t *sopt,
     if (mode==0&&solstatic&&time.time!=0.0) {
         sol.time=time;
         outsol(fp,&sol,rb,sopt);
+    }
+    if (prgbar < 25)
+    {
+        SolFlag = 1;
+    }
+    else if (prgbar >= 99)
+    {
+        SolFlag = 0;
     }
     rtkfree(&rtk);
 }
@@ -1400,7 +1412,8 @@ static int execses(gtime_t ts, gtime_t te, double ti, const prcopt_t *popt,
     /* free obs and nav data */
     freeobsnav(&obss,&navs);
     
-    return aborts?1:0;
+    //return aborts?1:0;
+    return SolFlag;
 }
 /* execute processing session for each rover ---------------------------------
 * 为每个流动站执行处理会话，功能逻辑见execses_b

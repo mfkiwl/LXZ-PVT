@@ -1193,20 +1193,20 @@ static int outenu(unsigned char *buff, const char *s, const sol_t *sol,
     
     trace(3,"outenu  :\n");
     
-    for (i=0;i<3;i++) rr[i]=sol->rr[i]-rb[i];
+    for (i = 0; i < 3; i++) rr[i] = sol->rr[i] - rb[i];
 
-    ecef2pos(rb,pos);
-    soltocov(sol,P);
-    covenu(pos,P,Q);
+    ecef2pos(rb, pos);
+    soltocov(sol, P);
+    covenu(pos, P, Q);
     ecef2enu(pos,rr,enu);
-	for (i = 0; i<3; i++) enu[i]=fabs(enu[i])<1E-5?1E-5:enu[i];
+    for (i = 0; i < 3; i++) enu[i] = fabs(enu[i]) < 1E-5 ? 1E-5 : enu[i];
 
-	p += sprintf(p, "%s%s%8d%s%8.1f%s%15.7f%s%14.5f%s%14.5f%s%14.5f%s%14.5f%s%3d%s%6d%s%6.1f%s%14.5f%s%14.5f%s%14.5f%s%14.5f%s%14.5f%s%14.5f%s%14.5f\n",
-		s, sep, 0,sep,0.0,sep,0.0,sep,enu[0], sep, enu[1], sep, enu[2], sep, norm(enu, 3), sep, sol->stat, sep, sol->ns, sep, sol->ratio,sep,
-		sol->rr[0], sep, sol->rr[1], sep, sol->rr[2], sep, rb[0], sep, rb[1], sep, rb[2], sep, sol->dop[1]);
+    p += sprintf(p, "%s%s%8d%s%8.1f%s%15.7f%s%14.5f%s%14.5f%s%14.5f%s%14.5f%s%3d%s%6d%s%6.1f%s%14.5f%s%14.5f%s%14.5f%s%14.5f%s%14.5f%s%14.5f%s%14.5f\n",
+        s, sep, 0, sep, 0.0, sep, 0.0, sep, enu[0], sep, enu[1], sep, enu[2], sep, norm(enu, 3), sep, sol->stat, sep, sol->ns, sep, sol->ratio, sep,
+        sol->rr[0], sep, sol->rr[1], sep, sol->rr[2], sep, rb[0], sep, rb[1], sep, rb[2], sep, sol->dop[1]);
 
 
-    return p-(char *)buff;
+    return p - (char*)buff;
 }
 /* output solution in the form of nmea RMC sentence --------------------------*/
 extern int outnmea_rmc(unsigned char *buff, const sol_t *sol)

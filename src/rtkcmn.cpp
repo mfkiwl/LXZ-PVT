@@ -135,6 +135,7 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <errno.h>
 #endif
 #include "rtklib.h"
 
@@ -146,9 +147,9 @@
 #define SQR(x)      ((x)*(x))
 #define MAX_VAR_EPH SQR(300.0)  /* max variance eph to reject satellite (m^2) */
 
-static const double gpst0[]={1980,1, 6,0,0,0}; /* gps time reference            /GPS²Î¿¼Ê±¼ä */
-static const double gst0 []={1999,8,22,0,0,0}; /* galileo system time reference /GLONASS²Î¿¼Ê±¼ä */
-static const double bdt0 []={2006,1, 1,0,0,0}; /* beidou time reference         /BDS²Î¿¼Ê±¼ä */
+static const double gpst0[]={1980,1, 6,0,0,0}; /* gps time reference            /GPSå‚è€ƒæ—¶é—´ */
+static const double gst0 []={1999,8,22,0,0,0}; /* galileo system time reference /GLONASSå‚è€ƒæ—¶é—´ */
+static const double bdt0 []={2006,1, 1,0,0,0}; /* beidou time reference         /BDSå‚è€ƒæ—¶é—´ */
 
 static double leaps[MAXLEAPS+1][7]={ /* leap seconds (y,m,d,h,m,s,utc-gpst) */
     {2017,1,1,0,0,0,-18},
@@ -212,7 +213,7 @@ const solopt_t solopt_default={ /* defaults solution output options */
     0,1,0,0,0,0,0,              /* degf,outhead,outopt,outvel,datum,height,geoid */
     0,0,0,                      /* solstatic,sstat,trace */
     {0.0,0.0},                  /* nmeaintv */
-    " ",""                      /* separator/program name */
+    " ",""                      /* separator/program name/sol flag */
 };
 const char *formatstrs[32]={    /* stream format strings */
     "RTCM 2",                   /*  0 */
@@ -618,8 +619,8 @@ extern int testsnr(int base, int freq, double el, double snr,
 }
 /* obs type string to obs code -------------------------------------------------
 * convert obs code type string to obs code
-* ½«¹Û²âÀàĞÍ×Ö·û´®£¨obs type string£©×ª»»Îª¹Û²âÂë£¨obs code£©
-* ½«×Ö·û("1C","1P","1Y",...)£¬×ª»»Îª¹Û²âÂë(¾ßÌå¼ûobscodes¶¨Òå)
+* å°†è§‚æµ‹ç±»å‹å­—ç¬¦ä¸²ï¼ˆobs type stringï¼‰è½¬æ¢ä¸ºè§‚æµ‹ç ï¼ˆobs codeï¼‰
+* å°†å­—ç¬¦("1C","1P","1Y",...)ï¼Œè½¬æ¢ä¸ºè§‚æµ‹ç (å…·ä½“è§obscodeså®šä¹‰)
 * args   : char   *str   I      obs code string ("1C","1P","1Y",...)
 *          int    *freq  IO     frequency (1:L1,2:L2,3:L5,4:L6,5:L7,6:L8,0:err)
 *                               (NULL: no output)
@@ -676,7 +677,7 @@ extern void setcodepri(int sys, int freq, const char *pri)
 }
 /* get code priority -----------------------------------------------------------
 * get code priority for multiple codes in a frequency
-* »ñÈ¡ÆµÂÊÖĞ¶à¸ö´úÂëµÄÓÅÏÈ¼¶
+* è·å–é¢‘ç‡ä¸­å¤šä¸ªä»£ç çš„ä¼˜å…ˆçº§
 * args   : int    sys     I     system (SYS_???)
 *          unsigned char code I obs code (CODE_???)
 *          char   *opt    I     code options (NULL:no option)
@@ -698,14 +699,14 @@ extern int getcodepri(int sys, unsigned char code, const char *opt)
         case SYS_IRN: i=6; optstr="-IL%2s"; break;
         default: return 0;
     }
-    //jÎª·µ»ØµÄ¸ÃĞÅºÅµÄÆµÂÊ´úºÅ£¬ÀıÈç£º1´ú±íL1Æµ¶Î£¬1575.42MHz
-    //obsÎªĞÅºÅÖÖÀà£¨1X£¬2I¡­¡­£©
+    //jä¸ºè¿”å›çš„è¯¥ä¿¡å·çš„é¢‘ç‡ä»£å·ï¼Œä¾‹å¦‚ï¼š1ä»£è¡¨L1é¢‘æ®µï¼Œ1575.42MHz
+    //obsä¸ºä¿¡å·ç§ç±»ï¼ˆ1Xï¼Œ2Iâ€¦â€¦ï¼‰
     obs=code2obs(code,&j);  
 
     /* parse code options
-        SPPÁ÷³ÌÖĞ£¬optÎª¿Õ£¬ÏÂÁĞÓï¾ä²»½øĞĞ */
+        SPPæµç¨‹ä¸­ï¼Œoptä¸ºç©ºï¼Œä¸‹åˆ—è¯­å¥ä¸è¿›è¡Œ */
     for (p=opt;p&&(p=strchr(p,'-'));p++) {
-        //½«pÖĞµÄÄÚÈİ°´optstrµÄ¸ñÊ½¶ÁÈëµ½strÖĞ£¬¼´strÎª-?LºóÃæµÄ×î¶àÁ½¸ö·Ç¿Õ°××Ö·û
+        //å°†pä¸­çš„å†…å®¹æŒ‰optstrçš„æ ¼å¼è¯»å…¥åˆ°strä¸­ï¼Œå³strä¸º-?Låé¢çš„æœ€å¤šä¸¤ä¸ªéç©ºç™½å­—ç¬¦
         if (sscanf(p,optstr,str)<1||str[0]!=obs[0]) continue;
         return str[1]==obs[1]?15:0;
     }
@@ -885,7 +886,8 @@ extern double *zeros(int n, int m)
     if ((p=mat(n,m))) for (n=n*m-1;n>=0;n--) p[n]=0.0;
 #else
     if (n<=0||m<=0) return NULL;
-    if (!(p=(double *)calloc(sizeof(double),n*m))) {
+    if (!(p=(double *)calloc(sizeof(double),n*m))) 
+    {
         fatalerr("matrix memory allocation error: n=%d,m=%d\n",n,m);
     }
 #endif
@@ -1031,10 +1033,10 @@ extern int solve(const char *tr, const double *A, const double *Y, int n,
 
 #else /* without LAPACK/BLAS or MKL */
 
-/* multiply matrix ¾ØÕó³Ë·¨ C = (a * A * B) + (b * C) -----------------------------------------------------------
-    tr±íÊ¾³Ë·¨¸ñÊ½£¬N´ú±íÎŞ¸Ä¶¯£¬T´ú±í×ªÖÃ£¬ÒÔ´ËÀàÍÆ£ºNT´ú±íA¾ØÕóÎŞ¸Ä¶¯£¬B¾ØÕó×ªÖÃ
-    A¾ØÕónĞĞmÁĞ£¬B¾ØÕómĞĞkÁĞ£¬C¾ØÕónĞĞkÁĞ
-    a(alpha)´ú±í¾ØÕóÇ°Ãæ³ËµÄ³£Êı£¬b(beta)´ú±íC¾ØÕóÇ°³ËµÄ³£Êı*/
+/* multiply matrix çŸ©é˜µä¹˜æ³• C = (a * A * B) + (b * C) -----------------------------------------------------------
+    trè¡¨ç¤ºä¹˜æ³•æ ¼å¼ï¼ŒNä»£è¡¨æ— æ”¹åŠ¨ï¼ŒTä»£è¡¨è½¬ç½®ï¼Œä»¥æ­¤ç±»æ¨ï¼šNTä»£è¡¨AçŸ©é˜µæ— æ”¹åŠ¨ï¼ŒBçŸ©é˜µè½¬ç½®
+    AçŸ©é˜µnè¡Œmåˆ—ï¼ŒBçŸ©é˜µmè¡Œkåˆ—ï¼ŒCçŸ©é˜µnè¡Œkåˆ—
+    a(alpha)ä»£è¡¨çŸ©é˜µå‰é¢ä¹˜çš„å¸¸æ•°ï¼Œb(beta)ä»£è¡¨CçŸ©é˜µå‰ä¹˜çš„å¸¸æ•°*/
 extern void matmul(const char *tr, int n, int k, int m, double alpha,
                    const double *A, const double *B, double beta, double *C)
 {
@@ -1046,8 +1048,8 @@ extern void matmul(const char *tr, int n, int k, int m, double alpha,
         {
             d=0.0;
             switch (f) {
-                // C¾ØÕóiĞĞjÁĞµÄÔªËØ¼ÆËã
-                // ×¢£ºĞòºÅ±àÅÅÒÔÁĞÎª»ù×¼£¬µ±Ç°ĞòºÅÎª£ºÖ®Ç°ÁĞÔªËØ£¨×ó²àÁĞ£©Ö®ºÍ+¸ÃÔªËØÔÚ¸ÃÁĞµÄĞòºÅ£¨ĞĞºÅ£©
+                // CçŸ©é˜µiè¡Œjåˆ—çš„å…ƒç´ è®¡ç®—
+                // æ³¨ï¼šåºå·ç¼–æ’ä»¥åˆ—ä¸ºåŸºå‡†ï¼Œå½“å‰åºå·ä¸ºï¼šä¹‹å‰åˆ—å…ƒç´ ï¼ˆå·¦ä¾§åˆ—ï¼‰ä¹‹å’Œ+è¯¥å…ƒç´ åœ¨è¯¥åˆ—çš„åºå·ï¼ˆè¡Œå·ï¼‰
                 case 1: for (x=0;x<m;x++) d+=A[i+x*n]*B[x+j*m]; break;
                 case 2: for (x=0;x<m;x++) d+=A[i+x*n]*B[j+x*k]; break;
                 case 3: for (x=0;x<m;x++) d+=A[x+i*m]*B[x+j*m]; break;
@@ -1283,8 +1285,9 @@ extern void matprint(const double A[], int n, int m, int p, int q)
 }
 /* string to number ------------------------------------------------------------
 * convert substring in string to number
-* Ö¸ÕëÏòºóÒÆi¸öÎ»ÖÃ£¬´ÓµÚi+1¸ö×Ö·û¿ªÊ¼£¬ÌáÈ¡n¸ö×Ö·û²¢×ª»»Îªdouble
-* Ê¾Àı£º¶ÔÓÚbuff="123456789",str2num(buff,3,3)="456"
+* æŒ‡é’ˆå‘åç§»iä¸ªä½ç½®ï¼Œä»ç¬¬i+1ä¸ªå­—ç¬¦å¼€å§‹ï¼Œæå–nä¸ªå­—ç¬¦å¹¶è½¬æ¢ä¸ºdouble
+* ç¤ºä¾‹ï¼šå¯¹äºbuff="123456789",str2num(buff,3,3)="456"
+* è¯¥ç¨‹åºè¯»å–åä¸ä¼šå½±å“æŒ‡é’ˆçš„æŒ‡å‘ï¼Œå³è¯»å®ŒåbuffæŒ‡é’ˆä¾æ—§æŒ‡å‘1ï¼Œè€Œé6 or 7
 * args   : char   *s        I   string ("... nnn.nnn ...")
 *          int    i,n       I   substring position and width
 * return : converted number (0.0:error)
@@ -1294,8 +1297,8 @@ extern double str2num(const char *s, int i, int n)
     double value;
     char str[256],*p=str;
     
-    if (i<0||(int)strlen(s)<i||(int)sizeof(str)-1<n) return 0.0;    //ÆğÊ¼Î»ÖÃ²»ÄÜÎª¸º£¬²»ÄÜ³¬³ös³¤¶È£¬ÌáÈ¡ÊıÄ¿²»ÄÜ³¬¹ıstr³¤¶È
-    for (s+=i;*s&&--n>=0;s++) *p++=*s=='d'||*s=='D'?'E':*s;
+    if (i<0||(int)strlen(s)<i||(int)sizeof(str)-1<n) return 0.0;    //èµ·å§‹ä½ç½®ä¸èƒ½ä¸ºè´Ÿï¼Œä¸èƒ½è¶…å‡ºsé•¿åº¦ï¼Œæå–æ•°ç›®ä¸èƒ½è¶…è¿‡stré•¿åº¦
+    for (s += i; *s && --n >= 0; s++) *p++ = *s == 'd' || *s == 'D' ? 'E' : *s;
     *p='\0';
     return sscanf(str,"%lf",&value)==1?value:0.0;
 }
@@ -1321,7 +1324,7 @@ extern int str2time(const char *s, int i, int n, gtime_t *t)
     return 0;
 }
 /* convert calendar day/time to time -------------------------------------------
-* epÊı×é±íÊ¾Ê±¼ä×ªgtime_t¸ñÊ½
+* epæ•°ç»„è¡¨ç¤ºæ—¶é—´è½¬gtime_tæ ¼å¼
 * convert calendar day/time to gtime_t struct
 * args   : double *ep       I   day/time {year,month,day,hour,min,sec}
 * return : gtime_t struct
@@ -1343,7 +1346,7 @@ extern gtime_t epoch2time(const double *ep)
     return time;
 }
 /* time to calendar day/time ---------------------------------------------------
-* gtime×ªÊı×é´¢´æÊ±¼ä£¬epÖĞµÄÔªËØ·Ö±ğÎª£ºyear,month,day,hour,min,sec
+* gtimeè½¬æ•°ç»„å‚¨å­˜æ—¶é—´ï¼Œepä¸­çš„å…ƒç´ åˆ†åˆ«ä¸ºï¼šyear,month,day,hour,min,sec
 * convert gtime_t struct to calendar day/time
 * args   : gtime_t t        I   gtime_t struct
 *          double *ep       O   day/time {year,month,day,hour,min,sec}
@@ -1369,7 +1372,7 @@ extern void time2epoch(gtime_t t, double *ep)
 }
 /* gps time to time ------------------------------------------------------------
 * convert week and tow in gps time to gtime_t struct
-* GPSÊ±µÄÖÜ+ÖÜÄÚÃë×ªgtime_t
+* GPSæ—¶çš„å‘¨+å‘¨å†…ç§’è½¬gtime_t
 * args   : int    week      I   week number in gps time
 *          double sec       I   time of week in gps time (s)
 * return : gtime_t struct
@@ -1385,7 +1388,7 @@ extern gtime_t gpst2time(int week, double sec)
 }
 /* time to gps time ------------------------------------------------------------
 * convert gtime_t struct to week and tow in gps time
-* gtime_t×ªGPS time£¨ÖÜ+ÖÜÄÚÃëµÄĞÎÊ½£©£¬weekÎªÖÜ£¬Ê¹ÓÃÖ¸ÕëĞŞ¸Ä£¬·µ»ØÖÜÄÚÃë£¨double£©
+* gtime_tè½¬GPS timeï¼ˆå‘¨+å‘¨å†…ç§’çš„å½¢å¼ï¼‰ï¼Œweekä¸ºå‘¨ï¼Œä½¿ç”¨æŒ‡é’ˆä¿®æ”¹ï¼Œè¿”å›å‘¨å†…ç§’ï¼ˆdoubleï¼‰
 * args   : gtime_t t        I   gtime_t struct
 *          int    *week     IO  week number in gps time (NULL: no output)
 * return : time of week in gps time (s)
@@ -2480,7 +2483,7 @@ extern int readblq(const char *file, const char *sta, double *odisp)
     return 0;
 }
 /* read earth rotation parameters ----------------------------------------------
-* read earth rotation parameters / ¶ÁÈ¡µØÇò×Ô×ª²ÎÊı
+* read earth rotation parameters / è¯»å–åœ°çƒè‡ªè½¬å‚æ•°
 * args   : char   *file       I   IGS ERP file (IGS ERP ver.2)
 *          erp_t  *erp        O   earth rotation parameters
 * return : status (1:ok,0:file open error)
@@ -2618,11 +2621,11 @@ static void uniqeph(nav_t *nav)
     
     if (nav->n<=0) return;
     
-    /* ÅÅĞòÔ­Ôò£º
-    * 1. °´ÕÕttr£¨½ÓÊÜĞÇÀúÊ±¼ä£©Ê±¼äÅÅĞò
-    * 2. Èç¹ûttrÊ±¼äÏàÍ¬£¬Ôò°´ÕÕtoeÊ±¼äÅÅĞò
-    * 3. Èç¹ûtoeÊ±¼äÏàÍ¬£¬Ôò°´ÕÕcodeÅÅĞò£¬ÒÔ±±¶·ÎªÀı£º0:B1I/B2I/B3I,1:B1C,2:B2a,3:B2b
-    * 4. Èç¹ûcodeÏàÍ¬£¬Ôò°´ÕÕÎÀĞÇ±àºÅÅÅĞò
+    /* æ’åºåŸåˆ™ï¼š
+    * 1. æŒ‰ç…§ttrï¼ˆæ¥å—æ˜Ÿå†æ—¶é—´ï¼‰æ—¶é—´æ’åº
+    * 2. å¦‚æœttræ—¶é—´ç›¸åŒï¼Œåˆ™æŒ‰ç…§toeæ—¶é—´æ’åº
+    * 3. å¦‚æœtoeæ—¶é—´ç›¸åŒï¼Œåˆ™æŒ‰ç…§codeæ’åºï¼Œä»¥åŒ—æ–—ä¸ºä¾‹ï¼š0:B1I/B2I/B3I,1:B1C,2:B2a,3:B2b
+    * 4. å¦‚æœcodeç›¸åŒï¼Œåˆ™æŒ‰ç…§å«æ˜Ÿç¼–å·æ’åº
     */
     qsort(nav->eph,nav->n,sizeof(eph_t),cmpeph);
     
@@ -2633,7 +2636,7 @@ static void uniqeph(nav_t *nav)
 		for (int ifrq = 0; ifrq < MAXFREQ; ifrq++){
 			if (nav->eph[i].tgd[ifrq] != 0.0&& (k = isys(sys, nav->eph[i].code, ifrq)) >= 0){
 				nav->tgd[nav->eph[i].sat - 1][ifrq] = nav->eph[i].tgd[ifrq];
-				/*¿¼ÂÇµ¼ÆµÓëÊı¾İÆµÖ®¼äµÄÆµÄÚ²î*/
+				/*è€ƒè™‘å¯¼é¢‘ä¸æ•°æ®é¢‘ä¹‹é—´çš„é¢‘å†…å·®*/
 				nav->tgd[nav->eph[i].sat - 1][ifrq] += nav->isci[k][ifrq]>0 ? nav->eph[i].isc[ifrq] : 0.0;
 			}
 		}
@@ -2780,7 +2783,7 @@ static int cmpobs(const void *p1, const void *p2)
 /* sort and unique observation data --------------------------------------------
 * sort and unique observation data by time, rcv, sat
 * args   : obs_t *obs    IO     observation data
-* return : number of epochs ·µ»Ø¹Û²âÎÄ¼şÀúÔªÊın
+* return : number of epochs è¿”å›è§‚æµ‹æ–‡ä»¶å†å…ƒæ•°n
 *-----------------------------------------------------------------------------*/
 extern int sortobs(obs_t *obs)
 {
@@ -2789,14 +2792,14 @@ extern int sortobs(obs_t *obs)
     trace(3,"sortobs: nobs=%d\n",obs->n);
     
     if (obs->n<=0) return 0;
-    /* ÅÅĞòÔ­Ôò£º
-    * 1.Ê±¼ä²»Í¬£¬Ôò°´Ê±¼äÏÈºóÅÅĞò
-    * 2.½ÓÊÕ»ú²»Í¬£¬Ôò°´½ÓÊÕ»ú±àºÅÏÈºóÅÅĞò
-    * 3.ÎÀĞÇ²»Í¬£¬Ôò°´ÎÀĞÇ±àºÅÏÈºóÅÅĞò
+    /* æ’åºåŸåˆ™ï¼š
+    * 1.æ—¶é—´ä¸åŒï¼Œåˆ™æŒ‰æ—¶é—´å…ˆåæ’åº
+    * 2.æ¥æ”¶æœºä¸åŒï¼Œåˆ™æŒ‰æ¥æ”¶æœºç¼–å·å…ˆåæ’åº
+    * 3.å«æ˜Ÿä¸åŒï¼Œåˆ™æŒ‰å«æ˜Ÿç¼–å·å…ˆåæ’åº
     */
     qsort(obs->data,obs->n,sizeof(obsd_t),cmpobs);
     
-    /* delete duplicated data/Ïàµ±ÓÚÒ»¸öÂËÍø£¬·ÇÖØ¸´µÄÍ¨¹ı£¬¹ıÂËµôÖØ¸´µÄÖµ */
+    /* delete duplicated data/ç›¸å½“äºä¸€ä¸ªæ»¤ç½‘ï¼Œéé‡å¤çš„é€šè¿‡ï¼Œè¿‡æ»¤æ‰é‡å¤çš„å€¼ */
     for (i=j=0;i<obs->n;i++) 
     {
         if (obs->data[i].sat!=obs->data[j].sat||
@@ -2810,11 +2813,11 @@ extern int sortobs(obs_t *obs)
     
     for (i=n=0;i<obs->n;i=j,n++) {
         for (j=i+1;j<obs->n;j++) {
-            if (timediff(obs->data[j].time,obs->data[i].time)>DTTOL) //Èô´óÓÚDTTOL£¬ÔòÏÂ¸ö¹Û²âÖµ²»ÔÙÊÇÍ¬Ò»¸öÀúÔªµÄ£¬¹ÊÍ£Ö¹
+            if (timediff(obs->data[j].time,obs->data[i].time)>DTTOL) //è‹¥å¤§äºDTTOLï¼Œåˆ™ä¸‹ä¸ªè§‚æµ‹å€¼ä¸å†æ˜¯åŒä¸€ä¸ªå†å…ƒçš„ï¼Œæ•…åœæ­¢
                 break;
         }
     }
-    //·µ»Ø¹Û²âÎÄ¼şÀúÔªÊın
+    //è¿”å›è§‚æµ‹æ–‡ä»¶å†å…ƒæ•°n
     return n;
 }
 /* screen by time --------------------------------------------------------------
@@ -3019,20 +3022,20 @@ static void traceswap(void)
     }
     unlock(&lock_trace);
 }
-//´ò¿ªtrace
+//æ‰“å¼€trace
 extern void traceopen(const char *file)
 {
     gtime_t time=utc2gpst(timeget());
     char path[1024];
     
     reppath(file,path,time,"","");
-    if (!*path||!(fp_trace=fopen(path,"w"))) fp_trace=stderr;   //Èç¹ûÂ·¾¶²»´æÔÚ»òÕßÎŞ·¨ÒÔĞ´Èë¸ñÊ½´ò¿ª£¬Ôòfp_traceÎªstderr£¨±ê×¼´íÎóÁ÷£©
+    if (!*path||!(fp_trace=fopen(path,"w"))) fp_trace=stderr;   //å¦‚æœè·¯å¾„ä¸å­˜åœ¨æˆ–è€…æ— æ³•ä»¥å†™å…¥æ ¼å¼æ‰“å¼€ï¼Œåˆ™fp_traceä¸ºstderrï¼ˆæ ‡å‡†é”™è¯¯æµï¼‰
     strcpy(file_trace,file);
-    tick_trace=tickget();   //»ñÈ¡µ±Ç°Ê±¼ä£¨¾«È·µ½ms£©
+    tick_trace=tickget();   //è·å–å½“å‰æ—¶é—´ï¼ˆç²¾ç¡®åˆ°msï¼‰
     time_trace=time;
-    initlock(&lock_trace);  //¶àÏß³ÌÍ¬²½ÓÃ
+    initlock(&lock_trace);  //å¤šçº¿ç¨‹åŒæ­¥ç”¨
 }
-//Èç¹ûfp_traceÓĞĞ§ÇÒfp_trace²»Îªstderr£¨±ê×¼´íÎóÁ÷£©£¬¹Ø±Õfp_trace£¬»Ö¸´³õÊ¼Öµ£¬Çå¿ÕÖ¸ÕëºÍÂ·¾¶
+//å¦‚æœfp_traceæœ‰æ•ˆä¸”fp_traceä¸ä¸ºstderrï¼ˆæ ‡å‡†é”™è¯¯æµï¼‰ï¼Œå…³é—­fp_traceï¼Œæ¢å¤åˆå§‹å€¼ï¼Œæ¸…ç©ºæŒ‡é’ˆå’Œè·¯å¾„
 extern void traceclose(void)
 {
     if (fp_trace && fp_trace != stderr) fclose(fp_trace);
@@ -3238,7 +3241,7 @@ extern int execcmd(const char *cmd)
 #endif
 }
 /* expand file path ------------------------------------------------------------
-* expand file path with wild-card (*) in file / ²éÕÒ·ûºÏÍ¨Åä·û¹æÔòµÄÎÄ¼ş£¬²¢°´×ÖÄ¸Ë³ĞòÅÅÁĞ£¬·µ»ØÕÒµ½µÄÎÄ¼şÊıÄ¿
+* expand file path with wild-card (*) in file / æŸ¥æ‰¾ç¬¦åˆé€šé…ç¬¦è§„åˆ™çš„æ–‡ä»¶ï¼Œå¹¶æŒ‰å­—æ¯é¡ºåºæ’åˆ—ï¼Œè¿”å›æ‰¾åˆ°çš„æ–‡ä»¶æ•°ç›®
 * args   : char   *path     I   file path to expand (captal insensitive)
 *          char   *paths    O   expanded file paths
 *          int    nmax      I   max number of expanded file paths
@@ -3261,7 +3264,7 @@ extern int expath(const char *path, char *paths[], int nmax)
         strncpy(dir,path,p-path+1); dir[p-path+1]='\0';
     }
     */
-    //dirÎªÎÄ¼şËùÔÚÎÄ¼ş¼ĞÂ·¾¶
+    //dirä¸ºæ–‡ä»¶æ‰€åœ¨æ–‡ä»¶å¤¹è·¯å¾„
 	if ((p = (char*)strrchr(path, '/')) || (p = (char*)strrchr(path, '\\'))) {
 		strncpy(dir, path, p - path + 1); dir[p - path + 1] = '\0';
 	}
@@ -3332,14 +3335,18 @@ extern void createdir(const char *path)
     if (!(p=strrchr(buff,FILEPATHSEP))) return;
     *p='\0';
     
-#ifdef WIN32
-    CreateDirectory(buff,NULL);
+#ifdef _WIN32
+    if (!CreateDirectory(buff, NULL) && GetLastError() != ERROR_ALREADY_EXISTS) {
+        // handle error
+}
 #else
-    mkdir(buff,0777);
+    if (mkdir(buff, 0777) == -1 && errno != EEXIST) {
+        // handle error
+    }
 #endif
 }
 /* replace string ------------------------------------------------------------*/
-/* strÎªÎÄ¼şÖ¸Õë£¬patÎªÒªĞŞ¸ÄµÄ¹Ø¼ü×Ö£¬repÎªÌí¼ÓµÄÄÚÈİ£¬Èç¹ûÃ»ÕÒµ½¹Ø¼ü×Ö»áÊ²Ã´¶¼²»×ö */
+/* strä¸ºæ–‡ä»¶æŒ‡é’ˆï¼Œpatä¸ºè¦ä¿®æ”¹çš„å…³é”®å­—ï¼Œrepä¸ºæ·»åŠ çš„å†…å®¹ï¼Œå¦‚æœæ²¡æ‰¾åˆ°å…³é”®å­—ä¼šä»€ä¹ˆéƒ½ä¸åš */
 static int repstr(char *str, const char *pat, const char *rep)
 {
     int len=(int)strlen(pat);
@@ -3347,21 +3354,21 @@ static int repstr(char *str, const char *pat, const char *rep)
     
     for (p=str,r=buff;*p;p=q+len) 
     {
-        //pÎªÎÄ¼şÍ·Ö¸Õë£¬qÎªpat´¦Ö¸Õë
+        //pä¸ºæ–‡ä»¶å¤´æŒ‡é’ˆï¼Œqä¸ºpatå¤„æŒ‡é’ˆ
         if (!(q=strstr(p,pat))) break;
-        strncpy(r,p,q-p); //´ÓpÖĞ¿½±´q-p¸ö×Ö·ûµ½rÖĞ£¬Èç¹ûpÖĞ×Ö·û²»×ã£¬»áÌáÇ°Ìî³ä'\0'
-        r+=q-p; //rÏòºóq-p¸ö×Ö·û
-        r+=sprintf(r,"%s",rep); //´Ó´Ë´¦¿ªÊ¼£¬Ğ´ÈërepÄÚÈİ
+        strncpy(r,p,q-p); //ä»pä¸­æ‹·è´q-pä¸ªå­—ç¬¦åˆ°rä¸­ï¼Œå¦‚æœpä¸­å­—ç¬¦ä¸è¶³ï¼Œä¼šæå‰å¡«å……'\0'
+        r+=q-p; //rå‘åq-pä¸ªå­—ç¬¦
+        r+=sprintf(r,"%s",rep); //ä»æ­¤å¤„å¼€å§‹ï¼Œå†™å…¥repå†…å®¹
     }
     if (p<=str) return 0;
-    strcpy(r,p);    //½«pÄÚÈİ¸´ÖÆµ½r
+    strcpy(r,p);    //å°†på†…å®¹å¤åˆ¶åˆ°r
     strcpy(str,buff);
     return 1;
 }
 /* replace keywords in file path -----------------------------------------------
-* °Ñpath¸´ÖÆµ½rpathÉÏ£¬ÔÚrpathÉÏ½øĞĞĞŞ¸Ä£¬Ö÷ÒªÊÇĞŞ¸ÄÊ±¼ä±í´ï
-* Ê¾Àı£ºpath = "data/%Y/%m/%d/%r-%b_%h%M.obs"
-* ĞŞ¸Äºó£ºrpath = "data/2024/03/13/RoverA-BaseB_1530.obs"
+* æŠŠpathå¤åˆ¶åˆ°rpathä¸Šï¼Œåœ¨rpathä¸Šè¿›è¡Œä¿®æ”¹ï¼Œä¸»è¦æ˜¯ä¿®æ”¹æ—¶é—´è¡¨è¾¾
+* ç¤ºä¾‹ï¼špath = "data/%Y/%m/%d/%r-%b_%h%M.obs"
+* ä¿®æ”¹åï¼šrpath = "data/2024/03/13/RoverA-BaseB_1530.obs"
 * replace keywords in file path with date, time, rover and base station id
 * args   : char   *path     I   file path (see below)
 *          char   *rpath    O   file path in which keywords replaced (see below)
@@ -3403,10 +3410,10 @@ extern int reppath(const char *path, char *rpath, gtime_t time, const char *rov,
     if (*rov ) stat|=repstr(rpath,"%r",rov );
     if (*base) stat|=repstr(rpath,"%b",base);
     if (time.time!=0) {
-        time2epoch(time,ep);    //gtime×ªÊı×é´¢´æÊ±¼ä£¬epÖĞµÄÔªËØ·Ö±ğÎª£ºyear,month,day,hour,min,sec
+        time2epoch(time,ep);    //gtimeè½¬æ•°ç»„å‚¨å­˜æ—¶é—´ï¼Œepä¸­çš„å…ƒç´ åˆ†åˆ«ä¸ºï¼šyear,month,day,hour,min,sec
         ep0[0]=ep[0];
-        dow=(int)floor(time2gpst(time,&week)/86400.0);      //dowÎª day of week ±íÊ¾Ò»ÖÜÖĞµÄµÚ¼¸Ìì
-        doy=(int)floor(timediff(time,epoch2time(ep0))/86400.0)+1;   //Äê»ıÈÕ
+        dow=(int)floor(time2gpst(time,&week)/86400.0);      //dowä¸º day of week è¡¨ç¤ºä¸€å‘¨ä¸­çš„ç¬¬å‡ å¤©
+        doy=(int)floor(timediff(time,epoch2time(ep0))/86400.0)+1;   //å¹´ç§¯æ—¥
         sprintf(rep,"%02d",  ((int)ep[3]/3)*3);   stat|=repstr(rpath,"%ha",rep);
         sprintf(rep,"%02d",  ((int)ep[3]/6)*6);   stat|=repstr(rpath,"%hb",rep);
         sprintf(rep,"%02d",  ((int)ep[3]/12)*12); stat|=repstr(rpath,"%hc",rep);
@@ -4089,6 +4096,401 @@ extern int isepoch(gtime_t t, const char *timestr)
 	if (fabs(timediff(time, t)) < 1E-3)return 1;
 	return 0;
 }
+
+extern void OutLog(char* stm, time_t EndTime, const char* logfilepath, prcopt_t opt, int flag)
+{
+    char FilePath[1024] = "";
+    char LocalLog[2048] = "";
+    struct tm* tm_end;
+    char etm[80];
+    FILE* LogFile = NULL;
+
+    strcpy(FilePath, logfilepath);
+    // å°è¯•æ‰“å¼€æ–‡ä»¶ï¼Œå¦‚æœæ–‡ä»¶å­˜åœ¨ï¼Œæ‰“å¼€å¹¶é™„åŠ å†…å®¹ï¼›å¦‚æœæ–‡ä»¶ä¸å­˜åœ¨ï¼Œåˆ™åˆ›å»ºæ–‡ä»¶
+    LogFile = fopen(FilePath, "a");  // 'a' æ¨¡å¼ï¼šå¦‚æœæ–‡ä»¶å­˜åœ¨ï¼Œè¿½åŠ å†…å®¹ï¼›å¦‚æœä¸å­˜åœ¨ï¼Œåˆ›å»ºæ–°æ–‡ä»¶
+    if (LogFile == NULL)
+    {
+        perror("Error opening file");  // æ‰“å¼€æ–‡ä»¶å¤±è´¥ï¼Œè¾“å‡ºé”™è¯¯ä¿¡æ¯
+        return;  // é€€å‡ºå‡½æ•°
+    }
+
+    //å‡†å¤‡å†™å…¥çš„å†…å®¹
+    int i = 0;
+    if (opt.ionoopt == IONOOPT_IFLC)
+    {
+        if (opt.navsys & SYS_GPS)
+        {
+            strcat(LocalLog, "GPS/");
+            i++;
+        }
+        if (opt.navsys & SYS_GLO)
+        {
+            strcat(LocalLog, "GLO/");
+            i++;
+        }
+        if (opt.navsys & SYS_GAL)
+        {
+            strcat(LocalLog, "GAL/");
+            i++;
+        }
+        if (opt.navsys & SYS_CMP)
+        {
+            strcat(LocalLog, "BDS/");
+            i++;
+        }
+        if (i == 1)
+        {
+            strcat(LocalLog, "å•");
+        }
+        else
+        {
+            strcat(LocalLog, "å¤š");
+        }
+        strcat(LocalLog, "ç³»ç»ŸåŒé¢‘ä¼ªè·å®šä½|");
+        strcat(LocalLog, "åŒ—æ–—/GNSSåŸºæœ¬å¯¼èˆªå®šä½|");
+        strcat(LocalLog, "åŒé¢‘å®šä½è§£ç®—|");
+    }
+    else
+    {
+        if (opt.navsys & SYS_GPS)
+        {
+            strcat(LocalLog, "GPS/");
+            i++;
+        }
+        if (opt.navsys & SYS_GLO)
+        {
+            strcat(LocalLog, "GLO/");
+            i++;
+        }
+        if (opt.navsys & SYS_GAL)
+        {
+            strcat(LocalLog, "GAL/");
+            i++;
+        }
+        if (opt.navsys & SYS_CMP)
+        {
+            strcat(LocalLog, "BDS/");
+            i++;
+        }
+        if (i == 1)
+        {
+            strcat(LocalLog, "å•");
+        }
+        else
+        {
+            strcat(LocalLog, "å¤š");
+        }
+        strcat(LocalLog, "ç³»ç»Ÿå•é¢‘ä¼ªè·å®šä½|");
+        strcat(LocalLog, "åŒ—æ–—/GNSSåŸºæœ¬å¯¼èˆªå®šä½|");
+        strcat(LocalLog, "å•é¢‘å®šä½è§£ç®—|");
+    }
+    strcat(LocalLog, "äº‹åè§‚æµ‹æ•°æ®| | |");
+    //è·å–è§£ç®—ç»“æŸæ—¶çš„æ—¶é—´
+    time(&EndTime);
+    tm_end = localtime(&EndTime);      // è½¬æ¢ä¸ºæœ¬åœ°æ—¶é—´
+    strftime(etm, sizeof(etm), "%Y-%m-%d %H:%M:%S|", tm_end);
+    strcat(LocalLog, stm);
+    strcat(LocalLog, etm);
+    if (flag == 0)
+    {
+        strcat(LocalLog, " ä¸šåŠ¡æ‰§è¡Œæ­£å¸¸\n");
+    }
+    else if (flag == 1)
+    {
+        strcat(LocalLog, " æŒ‡å®šè®¾ç½®ç¼ºå°‘å¯ç”¨å«æ˜Ÿï¼Œå°†åˆ‡æ¢ä¸ºé»˜è®¤è®¾ç½®é‡æ–°è§£ç®—\n");
+    }
+    else if (flag == 2)
+    {
+        strcat(LocalLog, " ä¸šåŠ¡æ‰§è¡Œå¤±è´¥ï¼Œç¼ºå°‘è¾“å…¥æ–‡ä»¶\n");
+    }
+    else
+    {
+        strcat(LocalLog, " æœªçŸ¥çŠ¶æ€\n");
+    }
+    //fprintf(LogFile, "%s", LocalLog);
+    fwrite(LocalLog, 1, strlen(LocalLog), LogFile);
+    // å…³é—­æ–‡ä»¶
+    fclose(LogFile);
+    return;
+}
+
+extern int ReadPosAndAnt(char** infile, prcopt_t* opt)
+{
+    FILE* fp = fopen(infile[1], "r");
+    double ant[3] = { 0 }, pos[3] = { 0 };
+    char temp[1024] = "";
+    while (fgets(temp, 100, fp))
+    {
+        if (strstr(temp, "APPROX POSITION XYZ"))
+        {
+            pos[0] = str2num(temp, 14 * 0, 14);
+            pos[1] = str2num(temp, 14 * 1, 14);
+            pos[2] = str2num(temp, 14 * 2, 14);
+        }
+        if (strstr(temp, "ANTENNA: DELTA H/E/N"))
+        {
+            ant[0] = str2num(temp, 14 * 0, 14);
+            ant[1] = str2num(temp, 14 * 1, 14);
+            ant[2] = str2num(temp, 14 * 2, 14);
+        }
+    }
+    //è¯»æ–‡ä»¶ä¸­å¤©çº¿å’Œç²—ç•¥ä½ç½®
+    if (opt->antdel[0][0] == 0.0 && opt->antdel[0][1] == 0.0 && opt->antdel[0][2] == 0.0)
+    {
+        opt->antdel[0][0] = ant[1];
+        opt->antdel[0][1] = ant[2];
+        opt->antdel[0][2] = ant[0];
+    }
+    if (opt->ru[0] == 0.0 && opt->ru[1] == 0.0 && opt->ru[2] == 0.0)
+    {
+        opt->ru[0] = pos[0];
+        opt->ru[1] = pos[1];
+        opt->ru[2] = pos[2];
+    }
+    fclose(fp);
+    return 0;
+}
+
+extern int OutfilePathSet(char** infile, char* outfile, prcopt_t opt)
+{
+    FILE *fp=fopen(infile[1], "r");
+    char* p;
+    char temp[1024], temp2[1024];
+    char sitename[5];
+    strcpy(temp, outfile);
+    if (p=strstr(temp, "JBDH"))
+    {
+        p += 4;
+        if (*p)
+        {
+            p += 1;
+            *p = '\0';
+        }
+        else
+        {
+            strcat(temp, "/");
+        }
+            
+    }
+    else
+    {
+        //å…ˆåˆ¤æ–­æ–‡ä»¶è·¯å¾„æ˜¯å¦å«æ–‡ä»¶å
+        if (strstr(temp, ".pos"))
+        {
+            if ((p = strrchr(temp, '/')) || (p = strrchr(temp, '\\')))
+            {
+                *p = '\0'; // å»æ‰æ–‡ä»¶åéƒ¨åˆ†
+            }
+        }
+        strcat(temp, "/JBDH/"); // å¦‚æœæ˜¯ç›¸å¯¹è·¯å¾„ï¼Œåˆ™ä½¿ç”¨å½“å‰ç›®å½•
+    }
+    strcpy(temp2, temp);
+    fgets(temp, 100, fp);
+    if (!strstr(temp, "OBSERVATION DATA"))
+    {
+        fclose(fp);
+        fp = fopen(infile[0], "r");
+    }
+    while (fgets(temp, 100, fp))
+    {
+        if (strstr(temp, "MARKER NAME"))
+        {
+            strncpy(sitename, temp, sizeof(sitename));
+            sitename[4] = '\0';
+        }
+        if (strstr(temp, "END OF HEADER"))
+            break;
+    }
+    fgets(temp, 100, fp);
+    char year_str[6], dayofyear_str[4];
+    int year = str2num(temp, 2, 4);
+    int month = str2num(temp, 7, 2);
+    int day = str2num(temp, 10, 2);
+    int dayofmonth[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    int dayofyear = day;
+    for (int i = 0; i < month - 1; i++)
+	{
+		dayofyear += dayofmonth[i];
+	}
+    if (year % 4 == 0 || year % 100 == 0 && year % 400 == 0) //é—°å¹´
+    {
+        if (month > 2)
+        {
+            dayofyear++;
+        }
+    }
+    snprintf(year_str, sizeof(year_str), "%04d", year);
+    snprintf(dayofyear_str, sizeof(dayofyear_str), "%03d", dayofyear);
+    strcat(temp2, year_str);
+    strcat(temp2, "/");
+    strcat(temp2, dayofyear_str);
+    strcat(temp2, "/");
+    strcat(temp2, "JBDH_");
+    strcat(temp2, year_str);
+    strcat(temp2, "_");
+    strcat(temp2, dayofyear_str);
+    strcat(temp2, "_");
+    strcat(temp2, sitename);
+    strcat(temp2, "_");
+    int NumOfSys = 0;
+    if (opt.navsys & SYS_GPS)
+    {
+        strcat(temp2, "G");
+        NumOfSys++;
+    }
+    if (opt.navsys & SYS_GLO)
+    {
+        strcat(temp2, "R");
+        NumOfSys++;
+    }
+    if (opt.navsys & SYS_GAL)
+    {
+        strcat(temp2, "E");
+        NumOfSys++;
+    }
+    if (opt.navsys & SYS_CMP)
+    {
+        strcat(temp2, "B");
+        NumOfSys++;
+    }
+    strcat(temp2, "_");
+    if (NumOfSys > 1)
+    {
+        strcat(temp2, "C.pos");
+    }
+    else 
+    {
+        if (opt.ionoopt == IONOOPT_IFLC)
+        {
+            strcat(temp2, "S.pos");
+        }
+        else {
+            strcat(temp2, "D.pos");
+        }
+    }
+    strcpy(outfile, temp2);
+    fclose(fp);
+    return 1;
+}
+
+extern int LogfilePathSet(char** infile, char* logfile, prcopt_t opt)
+{
+    FILE* fp = fopen(infile[1], "r");
+    char* p;
+    char temp[1024], temp2[1024];
+    char sitename[5];
+    strcpy(temp, logfile);
+    if (p = strstr(temp, "JBDH"))
+    {
+        p += 4;
+        if (*p)
+        {
+            p += 1;
+            *p = '\0';
+        }
+        else
+        {
+            strcat(temp, "/");
+        }
+
+    }
+    else
+    {
+        //å…ˆåˆ¤æ–­æ–‡ä»¶è·¯å¾„æ˜¯å¦å«æ–‡ä»¶å
+        if (strstr(temp, ".log")|| strstr(temp, ".pos"))
+        {
+            if ((p = strrchr(temp, '/')) || (p = strrchr(temp, '\\')))
+            {
+                *p = '\0'; // å»æ‰æ–‡ä»¶åéƒ¨åˆ†
+            }
+        }
+        strcat(temp, "/JBDH/"); // å¦‚æœæ˜¯ç›¸å¯¹è·¯å¾„ï¼Œåˆ™ä½¿ç”¨å½“å‰ç›®å½•
+    }
+    strcpy(temp2, temp);
+    fgets(temp, 100, fp);
+    if (!strstr(temp, "OBSERVATION DATA"))
+    {
+        fclose(fp);
+        fp = fopen(infile[0], "r");
+    }
+    while (fgets(temp, 100, fp))
+    {
+        if (strstr(temp, "MARKER NAME"))
+        {
+            strncpy(sitename, temp, sizeof(sitename));
+            sitename[4] = '\0';
+        }
+        if (strstr(temp, "END OF HEADER"))
+            break;
+    }
+    fgets(temp, 100, fp);
+    char year_str[6], dayofyear_str[4];
+    int year = str2num(temp, 2, 4);
+    int month = str2num(temp, 7, 2);
+    int day = str2num(temp, 10, 2);
+    int dayofmonth[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    int dayofyear = day;
+    for (int i = 0; i < month - 1; i++)
+    {
+        dayofyear += dayofmonth[i];
+    }
+    if (year % 4 == 0 || year % 100 == 0 && year % 400 == 0) //é—°å¹´
+    {
+        if (month > 2)
+        {
+            dayofyear++;
+        }
+    }
+    snprintf(year_str, sizeof(year_str), "%04d", year);
+    snprintf(dayofyear_str, sizeof(dayofyear_str), "%03d", dayofyear);
+    strcat(temp2, "JBDH_");
+    strcat(temp2, year_str);
+    strcat(temp2, "_");
+    strcat(temp2, dayofyear_str);
+    strcat(temp2, "_");
+    strcat(temp2, sitename);
+    strcat(temp2, "_");
+    int NumOfSys = 0;
+    if (opt.navsys & SYS_GPS)
+    {
+        //strcat(temp2, "G");
+        NumOfSys++;
+    }
+    if (opt.navsys & SYS_GLO)
+    {
+        //strcat(temp2, "R");
+        NumOfSys++;
+    }
+    if (opt.navsys & SYS_GAL)
+    {
+        //strcat(temp2, "E");
+        NumOfSys++;
+    }
+    if (opt.navsys & SYS_CMP)
+    {
+        //strcat(temp2, "B");
+        NumOfSys++;
+    }
+    //strcat(temp2, "_");
+    if (NumOfSys > 1)
+    {
+        strcat(temp2, "C.log");
+    }
+    else
+    {
+        if (opt.ionoopt == IONOOPT_IFLC)
+        {
+            strcat(temp2, "S.log");
+        }
+        else {
+            strcat(temp2, "D.log");
+        }
+    }
+    strcpy(logfile, temp2);
+    fclose(fp);
+    return 1;
+}
+
 
 /* dummy application functions for shared library ----------------------------*/
 #ifdef WIN_DLL

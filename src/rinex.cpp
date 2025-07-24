@@ -875,7 +875,7 @@ static int decode_obsdata(FILE *fp, char *buff, double ver, int mask,
         }
         if (stat) {
             val[i] = str2num(buff, j, 14) + ind->shift[i];
-            lli[i] = (unsigned char)str2num(buff, j + 14 + 1, 1) & 3;   // 最后的"&3"等价于"%4"（仅对 0～255 范围有效）
+            lli[i] = (unsigned char)str2num(buff, j + 14, 1) & 3;   // 最后的"&3"等价于"%4"（仅对 0～255 范围有效）
         }
     }
     if (!stat) return 0;

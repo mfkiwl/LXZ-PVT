@@ -1980,7 +1980,7 @@ extern double permutation(int flag, const double *x0, const int nx0, const doubl
 extern void outsatres(rtk_t* rtk, int* sat, int ns);
 extern void outsatres_single(FILE *fpSat_p, rtk_t* rtk, obsd_t *obs, int n);
 extern void outsatsnr_single(FILE *fpSat_snr, rtk_t* rtk, obsd_t *obs, int n);
-extern int loadfiles(const char* file, opt_t* opts, char* infile[], char* outfile);
+// extern int loadfiles(const char* file, opt_t* opts, char* infile[], char* outfile);
 extern int isepoch(gtime_t t, const char *timestr);
 extern int satid2sys(const char *id);
 
@@ -1989,7 +1989,12 @@ extern int showmsg(const char *format,...);
 extern void settspan(gtime_t ts, gtime_t te);
 extern void settime(gtime_t time);
 extern void getexedir(char *dir);
-
+/* 空天院项目特定函数 ------------------------------------------------*/
+extern void OutLog(char* stm, time_t EndTime, const char* outfile, prcopt_t opt, int flag);
+extern int ReadPosAndAnt(char** infile, prcopt_t* opt);
+extern int OutfilePathSet(char** infile, char* outfile, prcopt_t opt);
+extern int LogfilePathSet(char** infile, char* logfile, prcopt_t opt);
+extern int loadfiles(const char* file, opt_t* opts, char* infile[], char* outfile, char* logfile);
 #ifdef __cplusplus
 }
 #endif

@@ -44,11 +44,15 @@ extern double permutation(int flag, const double *x0, const int nx0, const doubl
 		}
 	}
 	index = nx>0 ? (int)round(ratio*nx) - 1 : -1;
+	// 返回排序结果，释放内存
 	if (index >= 0){
-		return x[index];
+		double x_index = x[index];
+		free(x);
+		return x_index;
 	}
 	else
 	{
+		free(x);
 		return 0.0;
 	}
 }
@@ -360,7 +364,7 @@ static void chop(char *str)
 *                              (terminated with table[i].name="")
 * return : status (1:ok,0:error)
 *-----------------------------------------------------------------------------*/
-extern int loadfiles(const char* file, opt_t* opts, char* infile[], char* outfile)
+extern int loadfiles(const char* file, opt_t* opts, char* infile[], char* outfile, char* logfile)
 {
 	FILE* fp;
 	opt_t* opt;
@@ -394,6 +398,10 @@ extern int loadfiles(const char* file, opt_t* opts, char* infile[], char* outfil
 		}
 		if (!strcmp(buff, "-outfile")) {
 			strcpy(outfile, p);
+			continue;
+		}
+		if (!strcmp(buff, "-logfile")) {
+			strcpy(logfile, p);
 			continue;
 		}
 	}

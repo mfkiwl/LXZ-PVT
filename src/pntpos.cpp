@@ -525,8 +525,7 @@ static int estpos(const obsd_t *obs, int n, const double *rs, const double *dts,
     for (i=0;i<MAXITR;i++) {
         
         /* pseudorange residuals */
-        nv=rescode(i,obs,n,rs,dts,vare,svh,nav,x,opt,v,H,var,azel,vsat,resp,
-			&ns, sol->sat);
+        nv = rescode(i, obs, n, rs, dts, vare, svh, nav, x, opt, v, H, var, azel, vsat, resp, &ns, sol->sat);
         
 		//printf("iter=%d\n", i + 1);
         if (nv<NX) {
